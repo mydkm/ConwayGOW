@@ -239,7 +239,4 @@ Possible extensions include:
 * score tracking by number of living cells per player
 * alternate tie-breaking rules for births and takeovers
 
----
-
-```
 
