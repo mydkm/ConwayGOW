@@ -234,6 +234,7 @@ Possible extensions include:
 * save/load board states
 * autoplay mode
 * support for >2 players
+* support for enhanced cells (as per powerups in game)
 * wraparound boundary option
 * score tracking by number of living cells per player
 * alternate tie-breaking rules for births and takeovers

@@ -21,6 +21,7 @@ class GameOfWarApp:
         self.n = n
         self.two_player = two_player
         self.time_step = 0
+        self.is_fullscreen = False
 
         # Board state:
         # 0 = dead
@@ -31,14 +32,15 @@ class GameOfWarApp:
         # In two-player mode, mouse clicks place/toggle the selected player
         self.active_player = 1
 
-        # Visual settings
-        self.cell_size = max(24, min(60, 520 // max(1, n)))
-        self.left_margin = 50
-        self.top_margin = 50
-        self.grid_width = self.n * self.cell_size
-        self.grid_height = self.n * self.cell_size
-        self.canvas_width = self.left_margin + self.grid_width + 10
-        self.canvas_height = self.top_margin + self.grid_height + 10
+        # Dynamic layout values (updated on resize)
+        self.cell_size = 40
+        self.grid_width = 0
+        self.grid_height = 0
+        self.grid_left = 60
+        self.grid_top = 60
+        self.left_label_space = 50
+        self.top_label_space = 50
+        self.label_font_size = 11
 
         self.dead_color = "white"
         self.player1_color = "crimson"
@@ -47,7 +49,15 @@ class GameOfWarApp:
 
         mode_text = "Two-Player" if self.two_player else "Single-Player"
         self.root.title(f"Conway's Game of War ({self.n}x{self.n}) - {mode_text}")
-        self.root.resizable(False, False)
+
+        # Allow resizing
+        self.root.resizable(True, True)
+        self.root.minsize(500, 500)
+
+        # Reasonable initial size
+        initial_width = max(700, min(1100, 120 + self.n * 55))
+        initial_height = max(750, min(1200, 180 + self.n * 55))
+        self.root.geometry(f"{initial_width}x{initial_height}")
 
         # UI text variables
         self.time_var = tk.StringVar(value=f"Time Step: {self.time_step}")
@@ -57,15 +67,23 @@ class GameOfWarApp:
         self.update_status_text()
 
         self.build_ui()
-        self.draw_grid()
 
         # Key bindings for advancing
         self.root.bind("<Return>", self.advance_from_event)
+
+        # Fullscreen controls
+        self.root.bind("<F11>", self.toggle_fullscreen)
+        self.root.bind("<Escape>", self.exit_fullscreen)
 
         # Key bindings for player selection in two-player mode
         if self.two_player:
             self.root.bind("<KeyPress-1>", self.select_player_1)
             self.root.bind("<KeyPress-2>", self.select_player_2)
+
+        # Draw once after widgets are realized
+        self.root.update_idletasks()
+        self.recompute_layout()
+        self.draw_grid()
 
     def build_ui(self):
         top_frame = tk.Frame(self.root)
@@ -100,13 +118,12 @@ class GameOfWarApp:
 
         self.canvas = tk.Canvas(
             self.root,
-            width=self.canvas_width,
-            height=self.canvas_height,
             bg="white",
             highlightthickness=0
         )
-        self.canvas.pack(padx=10, pady=4)
+        self.canvas.pack(padx=10, pady=4, fill="both", expand=True)
         self.canvas.bind("<Button-1>", self.on_canvas_click)
+        self.canvas.bind("<Configure>", self.on_canvas_resize)
 
         status_label = tk.Label(
             self.root,
@@ -134,41 +151,87 @@ class GameOfWarApp:
         if self.two_player:
             self.status_var.set(
                 "Click to place/toggle the selected player's cell. "
-                "Press 1 for Player 1, 2 for Player 2. Use R or Enter to advance."
+                "Press 1 for Player 1, 2 for Player 2. Press Enter to advance. "
             )
         else:
             self.status_var.set(
-                "Click cells to toggle them on/off. Use R or Enter to advance."
+                "Click cells to toggle them on/off. Press Enter to advance. "
             )
+
+    def toggle_fullscreen(self, event=None):
+        self.is_fullscreen = not self.is_fullscreen
+        self.root.attributes("-fullscreen", self.is_fullscreen)
+        return "break"
+
+    def exit_fullscreen(self, event=None):
+        self.is_fullscreen = False
+        self.root.attributes("-fullscreen", False)
+        return "break"
+
+    def on_canvas_resize(self, event):
+        self.recompute_layout(event.width, event.height)
+        self.draw_grid()
+
+    def recompute_layout(self, canvas_width=None, canvas_height=None):
+        if canvas_width is None:
+            canvas_width = max(200, self.canvas.winfo_width())
+        if canvas_height is None:
+            canvas_height = max(200, self.canvas.winfo_height())
+
+        # Reserve space for labels
+        self.left_label_space = max(40, min(90, canvas_width // 10))
+        self.top_label_space = max(40, min(90, canvas_height // 10))
+
+        padding = 20
+        available_grid_width = max(50, canvas_width - self.left_label_space - 2 * padding)
+        available_grid_height = max(50, canvas_height - self.top_label_space - 2 * padding)
+
+        self.cell_size = max(
+            8,
+            min(available_grid_width // self.n, available_grid_height // self.n)
+        )
+
+        self.grid_width = self.n * self.cell_size
+        self.grid_height = self.n * self.cell_size
+
+        # Center the grid in the remaining space
+        self.grid_left = self.left_label_space + max(
+            padding, (available_grid_width - self.grid_width) // 2 + padding
+        )
+        self.grid_top = self.top_label_space + max(
+            padding, (available_grid_height - self.grid_height) // 2 + padding
+        )
+
+        self.label_font_size = max(8, min(14, self.cell_size // 2))
 
     def draw_grid(self):
         self.canvas.delete("all")
 
         # Column labels: 1, 2, 3, ...
         for col in range(self.n):
-            x_center = self.left_margin + col * self.cell_size + self.cell_size / 2
+            x_center = self.grid_left + col * self.cell_size + self.cell_size / 2
             self.canvas.create_text(
                 x_center,
-                self.top_margin / 2,
+                self.grid_top - self.top_label_space / 2,
                 text=str(col + 1),
-                font=("Arial", 11, "bold")
+                font=("Arial", self.label_font_size, "bold")
             )
 
         # Row labels: A, B, C, ...
         for row in range(self.n):
-            y_center = self.top_margin + row * self.cell_size + self.cell_size / 2
+            y_center = self.grid_top + row * self.cell_size + self.cell_size / 2
             self.canvas.create_text(
-                self.left_margin / 2,
+                self.grid_left - self.left_label_space / 2,
                 y_center,
                 text=index_to_letters(row),
-                font=("Arial", 11, "bold")
+                font=("Arial", self.label_font_size, "bold")
             )
 
         # Grid cells
         for row in range(self.n):
             for col in range(self.n):
-                x1 = self.left_margin + col * self.cell_size
-                y1 = self.top_margin + row * self.cell_size
+                x1 = self.grid_left + col * self.cell_size
+                y1 = self.grid_top + row * self.cell_size
                 x2 = x1 + self.cell_size
                 y2 = y1 + self.cell_size
 
@@ -190,8 +253,8 @@ class GameOfWarApp:
         return self.dead_color
 
     def on_canvas_click(self, event):
-        col = (event.x - self.left_margin) // self.cell_size
-        row = (event.y - self.top_margin) // self.cell_size
+        col = (event.x - self.grid_left) // self.cell_size
+        row = (event.y - self.grid_top) // self.cell_size
 
         if not (0 <= row < self.n and 0 <= col < self.n):
             return
@@ -213,6 +276,8 @@ class GameOfWarApp:
         self.update_cell_visual(row, col)
 
     def update_cell_visual(self, row: int, col: int):
+        if self.rect_ids[row][col] is None:
+            return
         fill_color = self.owner_to_color(self.board[row][col])
         self.canvas.itemconfig(self.rect_ids[row][col], fill=fill_color)
 
