@@ -15,7 +15,7 @@ def index_to_letters(index: int) -> str:
     return result
 
 
-class GameOfLifeApp:
+class GameOfWarApp:
     def __init__(self, root: tk.Tk, n: int, two_player: bool = False):
         self.root = root
         self.n = n
@@ -46,7 +46,7 @@ class GameOfLifeApp:
         self.grid_line_color = "gray40"
 
         mode_text = "Two-Player" if self.two_player else "Single-Player"
-        self.root.title(f"Conway's Game of Life ({self.n}x{self.n}) - {mode_text}")
+        self.root.title(f"Conway's Game of War ({self.n}x{self.n}) - {mode_text}")
         self.root.resizable(False, False)
 
         # UI text variables
@@ -61,8 +61,6 @@ class GameOfLifeApp:
 
         # Key bindings for advancing
         self.root.bind("<Return>", self.advance_from_event)
-        self.root.bind("<KeyPress-r>", self.advance_from_event)
-        self.root.bind("<KeyPress-R>", self.advance_from_event)
 
         # Key bindings for player selection in two-player mode
         if self.two_player:
@@ -416,7 +414,7 @@ class GameOfLifeApp:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Conway's Game of Life GUI")
+    parser = argparse.ArgumentParser(description="Conway's Game of War GUI")
     parser.add_argument(
         "-n",
         "--size",
@@ -440,7 +438,7 @@ def parse_args():
 def main():
     args = parse_args()
     root = tk.Tk()
-    app = GameOfLifeApp(root, args.size, two_player=args.two_player)
+    app = GameOfWarApp(root, args.size, two_player=args.two_player)
     root.mainloop()
 
 
